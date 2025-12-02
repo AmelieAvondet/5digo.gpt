@@ -44,8 +44,7 @@ export default function ChatPage() {
         }
 
         // Añadir la respuesta de la IA
-        const aiMessage: Message = { role: 'assistant', content: result.response };
-        setMessages(result.fullContext.filter((msg: Message) => msg.role !== 'system'));
+        setMessages(result.fullContext || []);
     };
 
     return (

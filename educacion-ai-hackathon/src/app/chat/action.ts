@@ -68,9 +68,9 @@ export async function chatWithAI(userId: string, topicId: number, newMessage: st
         model: "gemini-2.5-flash", // Modelo rápido para hackathon
         contents: messagesToSend,
         systemInstruction: systemPrompt,
-    });
+    } as any);
 
-    const aiResponse = response.text() || "Lo siento, no pude procesar tu solicitud con Gemini.";
+    const aiResponse = response.text || "Lo siento, no pude procesar tu solicitud con Gemini.";
 
     // 5. Actualizar el contexto en la DB
     // NOTA: Asegúrate de guardar los mensajes en el formato que usará tu UI (probablemente 'user'/'assistant')
@@ -93,6 +93,6 @@ export async function chatWithAI(userId: string, topicId: number, newMessage: st
     // 6. Devolver la respuesta de la IA
     return { response: aiResponse, fullContext: newContext };
   } catch (error: any) {
-    return { error: error.message || "Error al procesar el mensaje." };
+    return { error: error.message || "Error al procesar el mensaje.", response: undefined, fullContext: [] };
   }
 }
