@@ -5,20 +5,53 @@
 // 1. Importar el SDK de Google Gen AI en lugar de OpenAI
 import { GoogleGenAI, Content } from "@google/genai";
 import { supabaseAdmin } from '@/lib/supabase';
+import { cookies } from 'next/headers';
+import { jwtVerify } from 'jose';
 
 // 2. Inicializar el cliente de la IA (Lee de .env.local)
 // La clase GoogleGenAI busca automáticamente la variable de entorno GEMINI_API_KEY
 const ai = new GoogleGenAI({});
 
+const JWT_SECRET = new TextEncoder().encode(
+  process.env.JWT_SECRET || 'your-secret-key-min-32-chars-long!!!'
+);
+
 // Define el tipo de contexto de la conversación (ajustado a Gemini)
 // Gemini usa 'user' y 'model' para los turnos de conversación
 type ConversationMessage = { role: 'user' | 'assistant'; content: string };
 
-export async function chatWithAI(userId: string, topicId: number, newMessage: string) {
+// Función auxiliar para obtener el userId del JWT
+async function getUserIdFromToken(): Promise<string | null> {
   try {
-    console.log(`[DEBUG] Iniciando chatWithAI: userId=${userId}, topicId=${topicId}`);
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth_token')?.value;
 
-    // 1. Obtener la sesión actual del usuario y el temario
+    if (!token) {
+      console.log(`[CHAT] No se encontró token de autenticación`);
+      return null;
+    }
+
+    const verified = await jwtVerify(token, JWT_SECRET);
+    const userId = (verified.payload as any).userId;
+    console.log(`[CHAT] UserId extraído del JWT: ${userId}`);
+    return userId;
+  } catch (error) {
+    console.error(`[CHAT] Error al extraer userId del JWT:`, error);
+    return null;
+  }
+}
+
+export async function chatWithAI(topicId: number, newMessage: string) {
+  try {
+    // 1. Obtener userId del JWT
+    const userId = await getUserIdFromToken();
+    if (!userId) {
+      return { error: "No estás autenticado. Por favor inicia sesión." };
+    }
+
+    console.log(`[CHAT] Iniciando chatWithAI: userId=${userId}, topicId=${topicId}`);
+
+    // 2. Obtener la sesión actual del usuario y el temario
     const { data: currentSession, error: sessionError } = await supabaseAdmin
       .from('chat_sessions')
       .select('id, context_data')
@@ -26,7 +59,7 @@ export async function chatWithAI(userId: string, topicId: number, newMessage: st
       .eq('topic_id', topicId)
       .single();
 
-    console.log(`[DEBUG] Búsqueda de sesión:`, { sessionError, currentSession });
+    console.log(`[CHAT] Búsqueda de sesión:`, { sessionError, currentSession });
 
     let session = currentSession;
 
